@@ -29,7 +29,10 @@ N = len(data)
 T = 0.5 # Sample spacing (30 mins)
 yf = fft(data)
 xf = fftfreq(N, T)[:N//2]
-amplitude = 2.0/N * np.abs(yf[0:N//2])
+# ensure yf is an ndarray (avoid potential tuple/dispatchable typing issues)
+yf = np.asarray(yf)
+# compute amplitude with clear grouping to satisfy type-checkers
+amplitude = (2.0 / N) * np.abs(yf[:N//2])
 
 # Handle division by zero for period calculation
 with np.errstate(divide='ignore'):
