@@ -1,0 +1,7 @@
+Model Training Performance Summary
+Date: 2026-01-17 00:27:37
+------------------------------
+RandomForestRegressor: R2=0.984
+XGBoostRegressor: R2=0.987
+------------------------------
+Selected Best Model: XGBoost (0.987)

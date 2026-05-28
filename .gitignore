@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+.streamlit/secrets.toml
+.streamlit/config.toml
+.idea/
+data/data_for_labeling.csv
