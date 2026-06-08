@@ -1,0 +1,48 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="mb-3">
+    <h1>SEU Cli-Res Analysis Helper</h1>
+    <h3 class="text-muted">Welcome to the Project Dashboard!</h3>
+    <p>This application contains several tools to help you analyze your tree and environmental data.</p>
+    <ol>
+        <li>Use the <strong>Data Sources</strong> sections in the sidebar to load your data.</li>
+        <li>Once data is loaded, select a tool from the navigation menu on the left.</li>
+        <li>Note that data loaded here is available across all pages until you clear it or close the app.</li>
+    </ol>
+</div>
+
+<hr>
+
+<h3>Maps and Images of Plots</h3>
+<div class="row">
+    <div class="col-12 mb-3">
+        <img src="{% static 'dashboard/images/St.Edwards_plot_map.jpg' %}" class="img-fluid mb-3" alt="Plot Map">
+    </div>
+    {% for i in "12345" %}
+    <div class="col-md-4 mb-3">
+        <img src="{% static 'dashboard/images/Plot' %}{{ i }}.jpg" class="img-fluid rounded" alt="Plot {{ i }}">
+    </div>
+    {% endfor %}
+</div>
+<hr>
+
+<h3>Device Fleet Inventory</h3>
+<div id="device-inventory"
+     hx-get="/api/devices/inventory/" hx-trigger="load" hx-indicator="#inventory-spinner">
+    <div class="text-center py-3">
+        <span class="spinner" id="inventory-spinner"></span>
+        Loading device inventory...
+    </div>
+</div>
+
+{% if combined_df_exists %}
+<hr>
+<h3>Export Merged Data</h3>
+<div class="d-flex gap-2">
+    <button class="btn btn-outline-primary btn-sm" disabled>CSV export available after data load</button>
+    <button class="btn btn-outline-secondary btn-sm" disabled>JSON export available after data load</button>
+</div>
+{% endif %}
+{% endblock %}

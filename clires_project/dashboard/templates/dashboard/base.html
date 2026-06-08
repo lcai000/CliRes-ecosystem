@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cli-Res Project Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.10/dist/htmx.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = { corePlugins: { preflight: false } }
+    </script>
+    <style>
+        :root { --sidebar-width: 320px; }
+        body { background-color: #f8f9fa; }
+        .sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: var(--sidebar-width); overflow-y: auto;
+            background: #1e293b; color: #e2e8f0; z-index: 1000;
+            padding: 1rem;
+        }
+        .main-content { margin-left: var(--sidebar-width); padding: 1.5rem; min-height: 100vh; }
+        .sidebar a, .sidebar .nav-link { color: #94a3b8; text-decoration: none; }
+        .sidebar a:hover, .sidebar .nav-link:hover { color: #fff; }
+        .sidebar .nav-link.active { color: #fff; background: #334155; border-radius: 6px; }
+        .sidebar .nav-link { display: block; padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 2px; }
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-block; }
+        .htmx-request.htmx-indicator { display: inline-block; }
+        .spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-primary { background-color: #2563eb; border-color: #2563eb; }
+        details > summary { cursor: pointer; padding: 0.5rem 0; font-weight: 500; }
+        details { margin-bottom: 0.5rem; }
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; position: relative; height: auto; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="mb-3">
+            <h5 class="text-white mb-0">Cli-Res Dashboard</h5>
+            <small class="text-muted">SEU Tree Monitoring</small>
+        </div>
+        <hr class="border-secondary">
+        <nav>
+            <a href="/" class="nav-link {% if request.resolver_match.url_name == 'home' %}active{% endif %}">
+                Home
+            </a>
+            <a href="/graphing/" class="nav-link {% if request.resolver_match.url_name == 'graphing' %}active{% endif %}">
+                Graphing Tool
+            </a>
+            <a href="/comfort/" class="nav-link {% if request.resolver_match.url_name == 'comfort' %}active{% endif %}">
+                Tree Comfort Index
+            </a>
+            <a href="/prediction/" class="nav-link {% if request.resolver_match.url_name == 'prediction' %}active{% endif %}">
+                Prediction Tool
+            </a>
+            <a href="/fourier/" class="nav-link {% if request.resolver_match.url_name == 'fourier' %}active{% endif %}">
+                Fourier Analysis
+            </a>
+            <a href="/fourier/concept/" class="nav-link {% if request.resolver_match.url_name == 'fourier_concept' %}active{% endif %}">
+                Fourier Concept
+            </a>
+        </nav>
+
+        <hr class="border-secondary mt-3">
+        <h6 class="text-uppercase text-muted small">Data Sources</h6>
+
+        <!-- Data Source 1: API -->
+        <details open>
+            <summary>1. Tree Sensors (API)</summary>
+            <form hx-post="/api/data/load/" hx-target="#api-result" hx-indicator="#api-spinner">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label class="form-label small">Start Date</label>
+                    <input type="date" name="api_start_date" class="form-control form-control-sm" value="{{ min_date|default:'2024-01-01' }}">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">End Date</label>
+                    <input type="date" name="api_end_date" class="form-control form-control-sm" value="{{ max_date|default:'2025-12-31' }}">
+                </div>
+                <div class="mb-2" id="device-select-container"
+                     hx-get="/api/devices/list/" hx-trigger="load" hx-indicator="#device-spinner">
+                    <div class="text-center py-2">
+                        <span class="spinner" id="device-spinner"></span>
+                        <small class="text-muted">Loading devices...</small>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary w-100">
+                    <span class="spinner htmx-indicator" id="api-spinner"></span>
+                    Fetch Tree Data
+                </button>
+                <div id="api-result" class="mt-2 small"></div>
+            </form>
+        </details>
+
+        <!-- Data Source 2: Weather -->
+        <details>
+            <summary>2. Reference Weather (Austin)</summary>
+            <small class="text-muted">(Open-Meteo)</small>
+            <form hx-post="/api/weather/fetch/" hx-target="#weather-result" hx-indicator="#weather-spinner" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="weather_start" value="{{ min_date|default:'' }}">
+                <input type="hidden" name="weather_end" value="{{ max_date|default:'' }}">
+                <button type="submit" class="btn btn-sm btn-outline-light w-100">
+                    <span class="spinner htmx-indicator" id="weather-spinner"></span>
+                    Fetch History
+                </button>
+                <div id="weather-result" class="mt-2 small"></div>
+            </form>
+        </details>
+
+        <!-- Data Source 3: Kestrel Upload -->
+        <details>
+            <summary>3. Manual Upload (Kestrel)</summary>
+            <form hx-encoding="multipart/form-data" hx-post="/api/data/upload/" hx-target="#kestrel-result" hx-indicator="#kestrel-spinner" class="mt-2">
+                {% csrf_token %}
+                <input type="file" name="kestrel_files" multiple accept=".csv" class="form-control form-control-sm mb-2">
+                <button type="submit" class="btn btn-sm btn-outline-light w-100">
+                    <span class="spinner htmx-indicator" id="kestrel-spinner"></span>
+                    Upload Files
+                </button>
+                <div id="kestrel-result" class="mt-2 small"></div>
+            </form>
+        </details>
+
+        <!-- Data Source 4: Large Historical CSV -->
+        <details>
+            <summary>4. Large Historical CSV</summary>
+            <form hx-encoding="multipart/form-data" hx-post="/api/data/historical/" hx-target="#hist-result" hx-indicator="#hist-spinner" class="mt-2">
+                {% csrf_token %}
+                <input type="file" name="large_csv" accept=".csv" class="form-control form-control-sm mb-2">
+                <input type="text" name="target_trees" class="form-control form-control-sm mb-2" placeholder="Trees (comma separated)">
+                <button type="submit" class="btn btn-sm btn-outline-light w-100">
+                    <span class="spinner htmx-indicator" id="hist-spinner"></span>
+                    Extract Target Trees
+                </button>
+                <div id="hist-result" class="mt-2 small"></div>
+            </form>
+        </details>
+
+        <!-- LCRA Live -->
+        <div class="mt-3">
+            <button hx-post="/api/lcra/fetch/" hx-target="#lcra-result" hx-indicator="#lcra-spinner" class="btn btn-sm btn-outline-info w-100">
+                <span class="spinner htmx-indicator" id="lcra-spinner"></span>
+                Fetch Live LCRA Weather
+            </button>
+            <div id="lcra-result" class="mt-2 small"></div>
+        </div>
+
+        <hr class="border-secondary mt-3">
+        <!-- Clear Data -->
+        <button hx-post="/api/data/clear/" hx-target="#main-content" hx-swap="innerHTML" class="btn btn-sm btn-outline-danger w-100">
+            Clear All Data
+        </button>
+
+        <!-- Global Date Filter -->
+        {% if combined_df_exists %}
+        <hr class="border-secondary mt-3">
+        <h6 class="text-uppercase text-muted small">Global Filter</h6>
+        <div class="mb-2">
+            <label class="form-label small">Start Date</label>
+            <input type="date" id="global-start" class="form-control form-control-sm" value="{{ min_date }}" min="{{ min_date }}" max="{{ max_date }}">
+        </div>
+        <div class="mb-2">
+            <label class="form-label small">End Date</label>
+            <input type="date" id="global-end" class="form-control form-control-sm" value="{{ max_date }}" min="{{ min_date }}" max="{{ max_date }}">
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content" id="main-content">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

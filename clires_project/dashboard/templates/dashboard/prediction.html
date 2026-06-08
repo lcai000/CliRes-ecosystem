@@ -1,0 +1,104 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<h1>AI Prediction Tool</h1>
+<div class="alert alert-info">
+    <strong>How to use:</strong> This AI model has learned the patterns between environmental conditions and tree growth.
+    Use the sliders or preset buttons to simulate conditions and predict tree growth.
+</div>
+
+{% if not has_model %}
+    <div class="alert alert-danger">Model not found. Please train the model first by running <code>trainers/train_model.py</code>.</div>
+{% else %}
+    <!-- Presets -->
+    <h4>1. Select a Scenario</h4>
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <button class="btn btn-outline-info w-100"
+                hx-post="/api/lcra/fetch/" hx-target="#lcra-result"
+                @click="setTimeout(() => { $el.closest('form').dispatchEvent(new Event('submit')) }, 1500)">
+                Use Live Austin Weather
+            </button>
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-success w-100"
+                onclick="document.getElementById('temp-slider').value=24; document.getElementById('hum-slider').value=65; document.getElementById('dew-slider').value=17;">
+                Best Conditions
+            </button>
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-danger w-100"
+                onclick="document.getElementById('temp-slider').value=38; document.getElementById('hum-slider').value=20; document.getElementById('dew-slider').value=5;">
+                Worst Conditions
+            </button>
+        </div>
+    </div>
+
+    <hr>
+    <h4>2. Fine-Tune Conditions</h4>
+    <form hx-post="/api/prediction/run/" hx-target="#prediction-result" hx-indicator="#pred-spinner" id="pred-form">
+        {% csrf_token %}
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Temperature (C)</label>
+                <input type="range" id="temp-slider" name="temp" class="form-range" min="-10" max="45" value="25" step="0.5"
+                    x-data x-model="$el.value">
+                <span class="small" id="temp-val">25.0 C</span>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Humidity (%)</label>
+                <input type="range" id="hum-slider" name="humidity" class="form-range" min="0" max="100" value="50" step="1"
+                    x-data x-model="$el.value">
+                <span class="small" id="hum-val">50%</span>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Dew Point (C)</label>
+                <input type="range" id="dew-slider" name="dew_point" class="form-range" min="-10" max="30" value="15" step="0.5"
+                    x-data x-model="$el.value">
+                <span class="small" id="dew-val">15.0 C</span>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label">Plant Name</label>
+                <select name="plant_name" class="form-select">
+                    {% for p in plant_names %}
+                        <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg w-100">
+            <span class="spinner htmx-indicator" id="pred-spinner"></span>
+            Run Prediction Model
+        </button>
+    </form>
+
+    <hr>
+    <div id="prediction-result">
+        <div class="text-center text-muted py-3">Adjust sliders and click "Run Prediction Model"</div>
+    </div>
+
+    <!-- Model Details -->
+    {% if model_performance %}
+    <hr>
+    <details>
+        <summary>Model Details & Performance</summary>
+        <pre class="small bg-light p-2">{{ model_performance }}</pre>
+    </details>
+    {% endif %}
+{% endif %}
+
+<script>
+    // Update displayed values when sliders change
+    document.getElementById('temp-slider')?.addEventListener('input', function() {
+        document.getElementById('temp-val').textContent = this.value + ' C';
+    });
+    document.getElementById('hum-slider')?.addEventListener('input', function() {
+        document.getElementById('hum-val').textContent = this.value + '%';
+    });
+    document.getElementById('dew-slider')?.addEventListener('input', function() {
+        document.getElementById('dew-val').textContent = this.value + ' C';
+    });
+</script>
+{% endblock %}
