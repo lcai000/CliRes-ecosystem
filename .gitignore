@@ -15,4 +15,5 @@ clires_project/staticfiles/
 clires_project/media/
 *.pyc
 *.pyo
+.vercel
 .DS_Store

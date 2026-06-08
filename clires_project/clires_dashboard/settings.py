@@ -21,6 +21,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -51,7 +52,7 @@ WSGI_APPLICATION = 'clires_dashboard.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': '/tmp/db.sqlite3' if os.environ.get('VERCEL') else BASE_DIR / 'db.sqlite3',
     }
 }
 
@@ -87,8 +88,18 @@ except Exception:
 # --- Static & Media Files ---
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# --- Vercel-specific settings ---
+if os.environ.get('VERCEL'):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    CSRF_TRUSTED_ORIGINS = config(
+        'CSRF_TRUSTED_ORIGINS',
+        default='https://*.vercel.app',
+        cast=Csv(),
+    )
 
 # --- Internationalization ---
 LANGUAGE_CODE = 'en-us'

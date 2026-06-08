@@ -1,7 +1,8 @@
 django>=4.2,<5.0
 redis
-hiredis
 python-decouple
+whitenoise
+gunicorn
 pandas
 numpy
 matplotlib
