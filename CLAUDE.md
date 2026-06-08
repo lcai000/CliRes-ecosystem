@@ -141,9 +141,7 @@ All `/api/*` endpoints return HTML fragments (not JSON). They return `<div class
 - **Sessions:** Backed by Redis cache (`SESSION_ENGINE = 'django.contrib.sessions.backends.cache'`)
 - **Redis fallback:** If Redis unavailable, falls back to LocMemCache
 - **Upload limit:** 100MB (`DATA_UPLOAD_MAX_MEMORY_SIZE`)
-- **ML model path:** `BASE_DIR.parent / 'models'` — references repo-root `models/` directory
-- **Images path:** `BASE_DIR.parent / 'Images'` — references repo-root `Images/` directory
-- **No database models** in the Django app — `models/` directory at repo root holds ML model `.pkl` files
+- **ML model path:** `BASE_DIR / 'models'` — references `clires_project/models/` directory (ML `.pkl` files)
 
 ## Key Dependencies (requirements.txt)
 `django>=4.2,<5.0`, `redis`, `hiredis`, `python-decouple`, `pandas`, `numpy`, `matplotlib`, `seaborn`, `requests`, `scikit-learn`, `xgboost`, `scipy`, `joblib`, `tabulate`
@@ -151,9 +149,8 @@ All `/api/*` endpoints return HTML fragments (not JSON). They return `<div class
 ## Common Pitfalls & Gotchas
 
 1. **Redis required for multi-user:** Session data and device cache use Redis. Falls back to LocMemCache if Redis is down, but that's per-process and won't work with multiple workers.
-2. **No database models:** `dashboard/` has zero Django models. `models/` at repo root holds `.pkl` files (ML models). `db.sqlite3` only stores Django sessions.
-3. **Streamlit-era artifacts:** Old `app.py`, `pages/`, `helpers/`, `.streamlit/` still exist at repo root — ignore them. All active code is in `clires_project/`.
-4. **matplotlib backend:** Must be `Agg` before any pyplot import. Set in both `settings.py` (line 5) and `charting_utils.py`/`api_ajax.py`.
+2. **No database models:** `dashboard/` has zero Django models. `clires_project/models/` holds `.pkl` files (ML models). `db.sqlite3` only stores Django sessions.
+3. **matplotlib backend:** Must be `Agg` before any pyplot import. Set in both `settings.py` (line 5) and `charting_utils.py`/`api_ajax.py`.
 5. **Device name duplication:** Multiple devices can share a plant name. The API query groups by plant name, which merges data from multiple sensors.
 6. **Large datasets:** API loads data in 30-day chunks with 0.1s sleeps. Count >10k rows triggers a performance warning.
 7. **CSRF for HTMX:** Set via `hx-headers` attribute on `<body>` in base.html — required for all POST requests.

@@ -120,7 +120,4 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB for large CSV uploads
 FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024
 
 # --- Model directory ---
-MODELS_DIR = BASE_DIR.parent / 'models'
-
-# --- Images directory ---
-IMAGES_DIR = BASE_DIR.parent / 'Images'
+MODELS_DIR = BASE_DIR / 'models'

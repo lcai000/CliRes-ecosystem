@@ -1,0 +1,182 @@
+<!-- dashboard.html — Single Unified Dashboard -->
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<!-- ================================================================ -->
+<!-- COLLAPSIBLE DATA TOOLBAR -->
+<!-- ================================================================ -->
+<details id="data-toolbar" class="mb-6" open>
+    <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition select-none bg-white rounded-2xl border border-slate-200 px-5 py-3 shadow-sm">
+        <i data-lucide="database" class="w-4 h-4"></i>
+        <span>Data Sources</span>
+    </summary>
+
+    <div class="bg-white rounded-b-2xl border border-t-0 border-slate-200 p-5 -mt-1 shadow-sm">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <!-- Left: Tree Sensors API (takes full half) -->
+            <div class="bg-slate-50 rounded-2xl p-4">
+                <div class="flex items-center gap-2 mb-3">
+                    <i data-lucide="antenna" class="w-4 h-4 text-primary"></i>
+                    <h6 class="text-sm font-semibold text-slate-700">Tree Sensors (API)</h6>
+                </div>
+                <form hx-post="/api/data/load/" hx-target="#api-result" hx-indicator="#api-spinner" class="space-y-2">
+                    {% csrf_token %}
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-0.5">Start Date</label>
+                            <input type="date" name="api_start_date" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" value="{{ min_date|default:default_start_date }}">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-0.5">End Date</label>
+                            <input type="date" name="api_end_date" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" value="{{ max_date|default:default_end_date }}">
+                        </div>
+                    </div>
+                    <div id="device-select-container">
+                        {% if sidebar_devices %}
+                            <select name="selected_devices" multiple class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm h-72 focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                                {% for d in sidebar_devices %}
+                                <option value="{{ d.name }}">{{ d.name }}</option>
+                                {% endfor %}
+                            </select>
+                        {% else %}
+                            <div hx-get="/api/devices/list/" hx-trigger="load" hx-swap="innerHTML">
+                                <div class="flex items-center gap-2 py-2">
+                                    <span class="spinner"></span>
+                                    <small class="text-slate-400">Loading devices...</small>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                        <span class="spinner htmx-indicator" id="api-spinner"></span>
+                        Fetch Tree Data
+                    </button>
+                    <div id="api-result" class="text-xs"></div>
+                </form>
+            </div>
+
+            <!-- Right: stacked Weather, Manual Upload, Historical CSV -->
+            <div class="flex flex-col gap-5">
+                <!-- Weather Data -->
+                <div class="bg-slate-50 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="cloud" class="w-4 h-4 text-sky-600"></i>
+                        <h6 class="text-sm font-semibold text-slate-700">Weather Data</h6>
+                    </div>
+                    <div class="space-y-3">
+                        <!-- Open-Meteo -->
+                        <form hx-post="/api/weather/fetch/" hx-target="#weather-result" hx-indicator="#weather-spinner">
+                            {% csrf_token %}
+                            <input type="hidden" name="weather_start" value="{{ min_date|default:'' }}">
+                            <input type="hidden" name="weather_end" value="{{ max_date|default:'' }}">
+                            <button type="submit" class="inline-flex items-center gap-2 border border-slate-300 text-slate-700 px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-slate-100 transition w-full justify-center">
+                                <span class="spinner htmx-indicator" id="weather-spinner"></span>
+                                <i data-lucide="cloud-rain" class="w-4 h-4"></i>
+                                Fetch Historical Weather (Open-Meteo)
+                            </button>
+                            <div id="weather-result" class="text-xs mt-1"></div>
+                        </form>
+
+                        <!-- LCRA -->
+                        <form hx-post="/api/lcra/fetch/" hx-target="#lcra-result" hx-indicator="#lcra-spinner-live">
+                            {% csrf_token %}
+                            <button type="submit" class="inline-flex items-center gap-2 border border-blue-300 text-blue-700 px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-50 transition w-full justify-center">
+                                <span class="spinner htmx-indicator" id="lcra-spinner-live"></span>
+                                <i data-lucide="zap" class="w-4 h-4"></i>
+                                Fetch Live LCRA Weather
+                            </button>
+                            <div id="lcra-result" class="text-xs mt-1"></div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Manual Upload (Kestrel) -->
+                <div class="bg-slate-50 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="upload" class="w-4 h-4 text-emerald-600"></i>
+                        <h6 class="text-sm font-semibold text-slate-700">Manual Upload (Kestrel)</h6>
+                    </div>
+                    <form hx-encoding="multipart/form-data" hx-post="/api/data/upload/" hx-target="#kestrel-result" hx-indicator="#kestrel-spinner" class="space-y-2">
+                        {% csrf_token %}
+                        <input type="file" name="kestrel_files" multiple accept=".csv" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-blue-700">
+                        <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                            <span class="spinner htmx-indicator" id="kestrel-spinner"></span>
+                            Upload Files
+                        </button>
+                        <div id="kestrel-result" class="text-xs"></div>
+                    </form>
+                </div>
+
+                <!-- Large Historical CSV -->
+                <div class="bg-slate-50 rounded-2xl p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-purple-600"></i>
+                        <h6 class="text-sm font-semibold text-slate-700">Large Historical CSV</h6>
+                    </div>
+                    <form hx-encoding="multipart/form-data" hx-post="/api/data/historical/" hx-target="#hist-result" hx-indicator="#hist-spinner" class="space-y-2">
+                        {% csrf_token %}
+                        <input type="file" name="large_csv" accept=".csv" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-blue-700">
+                        <input type="text" name="target_trees" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" placeholder="Trees (comma separated)">
+                        <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                            <span class="spinner htmx-indicator" id="hist-spinner"></span>
+                            Extract Target Trees
+                        </button>
+                        <div id="hist-result" class="text-xs"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom bar: status + global filter -->
+        <div class="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-200">
+            <div id="data-status-indicator">
+                {% if combined_df_exists %}
+                    <span class="flex items-center gap-1.5 text-sm text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        Data Loaded
+                    </span>
+                {% elif api_df_exists or kestrel_df_exists %}
+                    <span class="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 px-3 py-1 rounded-full">
+                        <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                        Partial Data
+                    </span>
+                {% else %}
+                    <span class="flex items-center gap-1.5 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                        <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
+                        No Data
+                    </span>
+                {% endif %}
+            </div>
+            {% if combined_df_exists %}
+            <div class="flex items-center gap-2 ml-auto">
+                <span class="text-xs text-slate-500">Global Filter:</span>
+                <input type="date" id="global-start" class="border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" value="{{ min_date }}" min="{{ min_date }}" max="{{ max_date }}">
+                <span class="text-xs text-slate-400">to</span>
+                <input type="date" id="global-end" class="border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" value="{{ max_date }}" min="{{ min_date }}" max="{{ max_date }}">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</details>
+
+<!-- ================================================================ -->
+<!-- SECTION 1: GRAPHING TOOL -->
+<!-- ================================================================ -->
+{% include "dashboard/sections/graphing.html" %}
+
+<!-- ================================================================ -->
+<!-- SECTION 2: ANALYSIS (2-column: Fourier + Comfort) -->
+<!-- ================================================================ -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8" id="analysis-grid">
+    {% include "dashboard/sections/fourier.html" %}
+    {% include "dashboard/sections/comfort.html" %}
+</div>
+
+<!-- ================================================================ -->
+<!-- SECTION 3: PREDICTION TOOL -->
+<!-- ================================================================ -->
+{% include "dashboard/sections/prediction.html" %}
+
+{% endblock %}

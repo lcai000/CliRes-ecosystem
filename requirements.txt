@@ -1,4 +1,8 @@
-streamlit
+django>=4.2,<5.0
+redis
+python-decouple
+whitenoise
+gunicorn
 pandas
 numpy
 matplotlib
@@ -6,5 +10,6 @@ seaborn
 requests
 scikit-learn
 xgboost
-openrouter
+scipy
+joblib
 tabulate

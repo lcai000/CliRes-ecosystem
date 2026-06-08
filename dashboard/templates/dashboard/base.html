@@ -99,26 +99,6 @@
                     </div>
                 </div>
 
-                <!-- Center: Data Status -->
-                <div class="flex items-center gap-2" id="data-status-indicator">
-                    {% if combined_df_exists %}
-                        <span class="flex items-center gap-1.5 text-sm text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-                            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                            Data Loaded
-                        </span>
-                    {% elif api_df_exists or kestrel_df_exists %}
-                        <span class="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 px-3 py-1 rounded-full">
-                            <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
-                            Partial Data
-                        </span>
-                    {% else %}
-                        <span class="flex items-center gap-1.5 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                            <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
-                            No Data
-                        </span>
-                    {% endif %}
-                </div>
-
                 <!-- Right: Actions -->
                 <div class="flex items-center gap-2 shrink-0">
                     <button onclick="document.getElementById('data-toolbar').toggleAttribute('data-open')"

@@ -1,5 +1,6 @@
 from django.urls import path
-from dashboard.views import home, api_ajax
+from dashboard.views import home
+from dashboard.views import api_ajax
 
 urlpatterns = [
     # Single unified dashboard
