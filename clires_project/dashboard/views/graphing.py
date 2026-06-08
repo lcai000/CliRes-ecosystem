@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from django.shortcuts import render
 from django.contrib import messages
+from datetime import timedelta, date
 
 from dashboard.helpers.config import COL_TIMESTAMP, COL_PLANT_NAME
 from dashboard.helpers.data_processing import filter_dataframe, aggregate_dataframe, standardize_dataframe
@@ -21,6 +22,12 @@ def graphing_view(request):
         # Try to rebuild
         combined_df = merge_combine_data(request)
 
+    today = date.today()
+    date_defaults = {
+        'default_start_date': (today - timedelta(days=30)).isoformat(),
+        'default_end_date': today.isoformat(),
+    }
+
     if combined_df is None or combined_df.empty:
         messages.info(request, "Please load data on the Home page to begin.")
         return render(request, 'dashboard/graphing.html', {
@@ -28,6 +35,7 @@ def graphing_view(request):
             'data_head': None,
             'columns': [],
             'plant_names': [],
+            **date_defaults,
         })
 
     # Standardize
@@ -47,4 +55,5 @@ def graphing_view(request):
         'columns': columns,
         'numeric_columns': numeric_cols,
         'plant_names': plant_names,
+        **date_defaults,
     })

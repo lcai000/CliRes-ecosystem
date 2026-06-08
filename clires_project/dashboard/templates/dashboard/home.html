@@ -26,17 +26,6 @@
     </div>
     {% endfor %}
 </div>
-<hr>
-
-<h3>Device Fleet Inventory</h3>
-<div id="device-inventory"
-     hx-get="/api/devices/inventory/" hx-trigger="load" hx-indicator="#inventory-spinner">
-    <div class="text-center py-3">
-        <span class="spinner" id="inventory-spinner"></span>
-        Loading device inventory...
-    </div>
-</div>
-
 {% if combined_df_exists %}
 <hr>
 <h3>Export Merged Data</h3>

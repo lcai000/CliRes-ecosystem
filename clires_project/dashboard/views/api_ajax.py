@@ -47,6 +47,7 @@ def load_api_data(request):
     if not all([username, password, client_id]):
         return HttpResponse(
             '<div class="alert alert-warning">API credentials not found. Please configure .env file.</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
         )
 
     selected = request.POST.getlist('selected_devices', [])
@@ -56,6 +57,7 @@ def load_api_data(request):
     if not selected:
         return HttpResponse(
             '<div class="alert alert-warning">Please select at least one tree.</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
         )
 
     start_date_str = request.POST.get('api_start_date', '')
@@ -67,38 +69,64 @@ def load_api_data(request):
     except ValueError:
         return HttpResponse(
             '<div class="alert alert-danger">Invalid date format.</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
         )
 
     token_result = get_access_token(username, password, client_id)
     if not token_result.ok:
-        return HttpResponse(f'<div class="alert alert-danger">{token_result.errors[0]}</div>')
+        return HttpResponse(
+            f'<div class="alert alert-danger">{token_result.errors[0]}</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
+        )
 
     access_token = token_result.data
 
     # Fetch device list to get full metadata
     devices_result = fetch_plant_names(access_token)
     if not devices_result.ok:
-        return HttpResponse(f'<div class="alert alert-danger">{devices_result.errors[0]}</div>')
+        return HttpResponse(
+            f'<div class="alert alert-danger">{devices_result.errors[0]}</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
+        )
 
     all_devices = devices_result.data
     selected_devices = [d for d in all_devices if d.get('name') in selected]
 
     if not selected_devices:
-        return HttpResponse('<div class="alert alert-warning">Selected trees not found in device list.</div>')
+        return HttpResponse(
+            '<div class="alert alert-warning">Selected trees not found in device list.</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
+        )
 
     data_result = fetch_all_data(selected_devices, start_date, end_date, access_token)
     if not data_result.ok:
-        return HttpResponse(f'<div class="alert alert-danger">{data_result.errors[0]}</div>')
+        return HttpResponse(
+            f'<div class="alert alert-danger">{data_result.errors[0]}</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
+        )
 
     api_df = data_result.data
     if api_df.empty:
-        return HttpResponse('<div class="alert alert-warning">No data found for selected range.</div>')
+        return HttpResponse(
+            '<div class="alert alert-warning">No data found for selected range. Please try a different date range or tree selection.</div>'
+            '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
+        )
 
     set_session_df(request, 'api_df', api_df)
     merge_combine_data(request)
 
+    count_warning = ''
+    if len(api_df) > 10000:
+        count_warning = (
+            f'<div class="alert alert-warning mt-2">'
+            f'Loaded {len(api_df):,} records. Large datasets may slow down charts. '
+            f'Consider narrowing the date range for better performance.'
+            f'</div>'
+        )
+
     return HttpResponse(f"""
     <div class="alert alert-success">Loaded {len(api_df)} records for {len(selected)} trees!</div>
+    {count_warning}
     <div class="d-flex gap-2 mt-2">
         <a href="/api/data/download/?format=csv" class="btn btn-sm btn-outline-primary">Download CSV</a>
         <a href="/api/data/download/?format=json" class="btn btn-sm btn-outline-secondary">Download JSON</a>

@@ -10,6 +10,47 @@ from dashboard.helpers.config import COL_TIMESTAMP, COL_PLANT_NAME
 from dashboard.helpers.cache_utils import DataResult
 
 
+def _get_cached_devices():
+    """Fetch device list from cache or ePlant API.
+
+    Caches the raw device list under 'devices:shared' so the
+    devices_list view can reuse a single API call.
+    Returns (devices, error_message) tuple.
+    """
+    CACHE_KEY = 'devices:shared:v1'
+
+    devices = cache.get(CACHE_KEY)
+    if devices and isinstance(devices, list) and all(isinstance(d, dict) for d in devices):
+        return devices, None
+
+    try:
+        from django.conf import settings
+        from dashboard.helpers.api_helpers import get_access_token, fetch_plant_names
+
+        username = settings.EPLANT_USERNAME
+        password = settings.EPLANT_PASSWORD
+        client_id = settings.EPLANT_CLIENT_ID
+
+        if not all([username, password, client_id]):
+            return None, "API credentials not configured. Check your .env file."
+
+        token_result = get_access_token(username, password, client_id)
+        if not token_result.ok:
+            return None, token_result.errors[0]
+
+        devices_result = fetch_plant_names(token_result.data)
+        if not devices_result.ok:
+            return None, devices_result.errors[0]
+
+        if not devices_result.data:
+            return None, "No devices found for this account."
+
+        cache.set(CACHE_KEY, devices_result.data, timeout=3600)
+        return devices_result.data, None
+    except Exception as e:
+        return None, str(e)
+
+
 def get_session_df(request, key):
     """Retrieve a DataFrame from the cache for this session."""
     if not request.session.session_key:
@@ -89,10 +130,13 @@ def home_view(request):
     if not request.session.session_key:
         request.session.save()
 
+    today = date.today()
     context = {
         'api_df_exists': get_session_df(request, 'api_df') is not None,
         'kestrel_df_exists': get_session_df(request, 'kestrel_df') is not None,
         'combined_df_exists': get_session_df(request, 'combined_df') is not None,
+        'default_start_date': (today - timedelta(days=30)).isoformat(),
+        'default_end_date': today.isoformat(),
     }
 
     # Date range for combined data
@@ -102,7 +146,6 @@ def home_view(request):
             ts = pd.to_datetime(combined_df[COL_TIMESTAMP], errors='coerce')
             min_date = ts.min().date()
             max_date = ts.max().date()
-            today = date.today()
             if max_date < today:
                 max_date = today
             if min_date >= max_date:
@@ -115,70 +158,16 @@ def home_view(request):
 
 def devices_list(request):
     """HTMX endpoint to fetch device list for sidebar."""
-    devices_html = cache.get('devices:html')
-    if devices_html:
+    devices, error = _get_cached_devices()
+    if error:
+        devices_html = f'<select name="selected_devices" multiple class="form-select form-select-sm" size="6"><option disabled>{error}</option></select>'
         return HttpResponse(devices_html)
 
-    try:
-        from django.conf import settings
-        from dashboard.helpers.api_helpers import get_access_token, fetch_plant_names
-
-        username = settings.EPLANT_USERNAME
-        password = settings.EPLANT_PASSWORD
-        client_id = settings.EPLANT_CLIENT_ID
-
-        if all([username, password, client_id]):
-            token_result = get_access_token(username, password, client_id)
-            if token_result.ok:
-                devices_result = fetch_plant_names(token_result.data)
-                if devices_result.ok and devices_result.data:
-                    rows = ''.join(
-                        f'<option value="{d["name"]}">{d["name"]}</option>'
-                        for d in devices_result.data
-                    )
-                    devices_html = f'<select name="selected_devices" multiple class="form-select form-select-sm" size="6">{rows}</select>'
-                    cache.set('devices:html', devices_html, timeout=3600)
-                    return HttpResponse(devices_html)
-    except Exception:
-        pass
-
-    devices_html = '<select name="selected_devices" multiple class="form-select form-select-sm" size="6"><option disabled>Could not load devices</option></select>'
+    rows = ''.join(
+        f'<option value="{d["name"]}">{d["name"]}</option>'
+        for d in devices
+    )
+    devices_html = f'<select name="selected_devices" multiple class="form-select form-select-sm" size="6">{rows}</select>'
     return HttpResponse(devices_html)
 
 
-def device_inventory(request):
-    """HTMX endpoint to fetch device inventory table for home page."""
-    cached = cache.get('devices:inventory:html')
-    if cached:
-        return HttpResponse(cached)
-
-    try:
-        from django.conf import settings
-        from dashboard.helpers.api_helpers import get_access_token, fetch_plant_names
-        import pandas as pd
-
-        username = settings.EPLANT_USERNAME
-        password = settings.EPLANT_PASSWORD
-        client_id = settings.EPLANT_CLIENT_ID
-
-        if all([username, password, client_id]):
-            token_result = get_access_token(username, password, client_id)
-            if token_result.ok:
-                devices_result = fetch_plant_names(token_result.data)
-                if devices_result.ok and devices_result.data:
-                    df = pd.DataFrame(devices_result)
-                    display_cols = ['name', 'install_date', 'last_active']
-                    df = df[[c for c in display_cols if c in df.columns]]
-                    df = df.rename(columns={
-                        'name': 'Tree/Device Name',
-                        'install_date': 'Install Date',
-                        'last_active': 'Last Server Contact (UTC)'
-                    })
-                    html = df.to_html(classes='table table-sm table-striped', index=False)
-                    cache.set('devices:inventory:html', html, timeout=3600)
-                    return HttpResponse(html)
-    except Exception:
-        pass
-
-    html = '<div class="alert alert-info">Connect to the API in the sidebar to see device inventory.</div>'
-    return HttpResponse(html)

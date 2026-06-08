@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cli-Res Project Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.10/dist/htmx.min.js"></script>
+    <script>
+        htmx.config.timeout = 30000;
+        document.addEventListener('htmx:timeout', function(evt) {
+            evt.target.innerHTML = '<div class="alert alert-warning small">Request timed out. Please try again or narrow your selection.</div>';
+        });
+    </script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -64,9 +70,6 @@
             <a href="/fourier/" class="nav-link {% if request.resolver_match.url_name == 'fourier' %}active{% endif %}">
                 Fourier Analysis
             </a>
-            <a href="/fourier/concept/" class="nav-link {% if request.resolver_match.url_name == 'fourier_concept' %}active{% endif %}">
-                Fourier Concept
-            </a>
         </nav>
 
         <hr class="border-secondary mt-3">
@@ -79,18 +82,27 @@
                 {% csrf_token %}
                 <div class="mb-2">
                     <label class="form-label small">Start Date</label>
-                    <input type="date" name="api_start_date" class="form-control form-control-sm" value="{{ min_date|default:'2024-01-01' }}">
+                    <input type="date" name="api_start_date" class="form-control form-control-sm" value="{{ min_date|default:default_start_date }}">
                 </div>
                 <div class="mb-2">
                     <label class="form-label small">End Date</label>
-                    <input type="date" name="api_end_date" class="form-control form-control-sm" value="{{ max_date|default:'2025-12-31' }}">
+                    <input type="date" name="api_end_date" class="form-control form-control-sm" value="{{ max_date|default:default_end_date }}">
                 </div>
-                <div class="mb-2" id="device-select-container"
-                     hx-get="/api/devices/list/" hx-trigger="load" hx-indicator="#device-spinner">
-                    <div class="text-center py-2">
-                        <span class="spinner" id="device-spinner"></span>
-                        <small class="text-muted">Loading devices...</small>
-                    </div>
+                <div class="mb-2" id="device-select-container">
+                    {% if sidebar_devices %}
+                        <select name="selected_devices" multiple class="form-select form-select-sm" size="6">
+                            {% for d in sidebar_devices %}
+                            <option value="{{ d.name }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <div hx-get="/api/devices/list/" hx-trigger="load" hx-swap="innerHTML">
+                            <div class="text-center py-2">
+                                <span class="spinner"></span>
+                                <small class="text-muted">Loading devices...</small>
+                            </div>
+                        </div>
+                    {% endif %}
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary w-100">
                     <span class="spinner htmx-indicator" id="api-spinner"></span>

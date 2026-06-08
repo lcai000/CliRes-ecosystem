@@ -3,6 +3,15 @@ import joblib
 import pandas as pd
 from django.shortcuts import render
 from django.conf import settings
+from datetime import timedelta, date
+
+
+def _date_defaults():
+    today = date.today()
+    return {
+        'default_start_date': (today - timedelta(days=30)).isoformat(),
+        'default_end_date': today.isoformat(),
+    }
 
 
 def prediction_view(request):
@@ -35,4 +44,5 @@ def prediction_view(request):
         'has_model': has_model,
         'plant_names': plant_names,
         'model_performance': perf_text,
+        **_date_defaults(),
     })

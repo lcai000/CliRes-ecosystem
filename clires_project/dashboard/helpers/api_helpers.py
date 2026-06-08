@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import timedelta
 import json
 import time
+import hashlib
 from django.core.cache import cache
 
 from dashboard.helpers.config import COL_TIMESTAMP, COL_PLANT_NAME
@@ -29,7 +30,7 @@ def get_access_token(username, password, client_id):
         "AuthParameters": {"USERNAME": username, "PASSWORD": password},
     }
     try:
-        response = requests.post(AUTH_URL, headers=headers, json=payload)
+        response = requests.post(AUTH_URL, headers=headers, json=payload, timeout=15)
         response.raise_for_status()
         token_data = response.json()
         access_token = token_data['AuthenticationResult']['AccessToken']
@@ -41,7 +42,7 @@ def get_access_token(username, password, client_id):
 
 def fetch_plant_names(access_token):
     """Fetches ALL pages of association metadata to link plant names to serial numbers."""
-    cache_key = f"api:devices:{hash(access_token)}"
+    cache_key = f"api:devices:{hashlib.md5(access_token.encode()).hexdigest()}"
     cached = cache.get(cache_key)
     if cached:
         return DataResult(data=cached)
@@ -55,7 +56,7 @@ def fetch_plant_names(access_token):
         if start_index:
             payload['startIndex'] = start_index
         try:
-            response = requests.post(f"{API_URL}/association-metadata", headers=headers, json=payload)
+            response = requests.post(f"{API_URL}/association-metadata", headers=headers, json=payload, timeout=15)
             response.raise_for_status()
             result = response.json()
             page_data = result.get('data', [])
@@ -117,7 +118,7 @@ def fetch_all_data(selected_devices, start_date, end_date, access_token):
                 "timeStop": current_end.strftime("%Y-%m-%d %H:%M")
             }
             try:
-                response = requests.post(f"{API_URL}/plantdata", headers=headers, json=payload)
+                response = requests.post(f"{API_URL}/plantdata", headers=headers, json=payload, timeout=60)
                 response.raise_for_status()
                 if response.text:
                     try:
@@ -138,7 +139,7 @@ def fetch_all_data(selected_devices, start_date, end_date, access_token):
             except Exception:
                 pass
             current_start = current_end + timedelta(days=1)
-            time.sleep(0.5)
+            time.sleep(0.1)
 
     if not all_data_chunks:
         return DataResult(data=pd.DataFrame(), warnings=["The API returned no data for the selected criteria."])
