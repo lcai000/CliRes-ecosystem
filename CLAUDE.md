@@ -1,18 +1,24 @@
 # CLAUDE.md — Cli-Res Dashboard
 
 ## Project Overview
-Django monolith dashboard for tree health monitoring — fetches dendrometer/weather data from ePlant API, Open-Meteo, and LCRA; visualizes with matplotlib/seaborn; ML prediction and FFT analysis. Migrated from Streamlit.
+Django monolith dashboard for tree health monitoring — fetches dendrometer/weather data from ePlant API, Open-Meteo, and LCRA; visualizes with matplotlib/seaborn; ML prediction and FFT analysis. Migrated from Streamlit. Deployed on GCP Cloud Run via Docker.
 
-**Stack:** Django 4.2+, Python, SQLite, Redis, HTMX + Alpine.js + Tailwind + Bootstrap 5 (CDN, no JS build step)
+**Stack:** Django 4.2+, Python, SQLite, Redis, HTMX + Alpine.js + Tailwind + Bootstrap 5 (CDN, no JS build step), Docker, Gunicorn
 
 ## Directory Structure
 ```
-clires_project/
+.
 ├── manage.py                          # Django management script
 ├── requirements.txt                   # Python dependencies
+├── Dockerfile                         # Multi-stage Docker build
+├── docker-compose.yml                 # Local dev (web + redis services)
+├── .dockerignore                      # Docker build exclusions
+├── entrypoint.sh                      # Container entrypoint (migrate + gunicorn)
 ├── .env                               # Secrets (DEBUG, REDIS_URL, EPLANT_*)
+├── .env.example                       # Template showing required vars
 ├── db.sqlite3                         # SQLite DB (sessions only, no app models)
 ├── media/                             # Uploaded media (empty)
+├── models/                            # ML model .pkl files
 ├── clires_dashboard/                  # Django project package
 │   ├── settings.py                    # All config (DB, cache, ePlant creds, model paths)
 │   ├── urls.py                        # Root URLconf → includes dashboard.urls
@@ -21,12 +27,8 @@ clires_project/
     ├── apps.py                        # AppConfig — loads ML model in ready()
     ├── context_processors.py          # sidebar_devices — injects cached device list
     ├── urls.py                        # All app routes (pages + API partials)
-    ├── views/                         # View modules (one per page + shared)
-    │   ├── home.py                    # Home page, device listing, session df helpers
-    │   ├── graphing.py                # Graphing Tool page
-    │   ├── comfort.py                 # Tree Comfort Index page
-    │   ├── prediction.py              # ML Prediction page
-    │   ├── fourier.py                 # Fourier Analysis page
+    ├── views/                         # View modules
+    │   ├── home.py                    # Dashboard page, device listing, session df helpers
     │   ├── api_ajax.py                # All HTMX POST endpoints (data load, chart, predict, FFT, etc.)
     │   └── charting_utils.py          # matplotlib/seaborn plot creation + fig_to_b64()
     ├── helpers/                       # Data-fetching & processing (no Django imports)
@@ -40,7 +42,13 @@ clires_project/
     │   └── utils.py                   # get_base_col_name()
     ├── templates/dashboard/           # Django templates
     │   ├── base.html                  # Layout: sidebar, nav, CDN includes, CSRF via hx-headers
-    │   ├── home.html, graphing.html, comfort.html, prediction.html, fourier.html
+    │   ├── dashboard.html             # Single unified dashboard page
+    │   └── sections/                  # Dashboard section partials
+    │       ├── overview.html          # Data overview/stats cards
+    │       ├── graphing.html          # Graphing tool section
+    │       ├── comfort.html           # Comfort index section
+    │       ├── fourier.html           # Fourier analysis section
+    │       └── prediction.html        # ML prediction section
     ├── static/dashboard/
     │   ├── css/styles.css
     │   └── images/                    # Logos, plot maps
@@ -58,11 +66,7 @@ clires_project/
 ## URL Routes
 | Pattern | View | Method | Purpose |
 |---------|------|--------|---------|
-| `/` | `home.home_view` | GET | Home (plots, device list) |
-| `/graphing/` | `graphing.graphing_view` | GET | Graphing tool page |
-| `/comfort/` | `comfort.comfort_view` | GET | Comfort Index page |
-| `/prediction/` | `prediction.prediction_view` | GET | ML prediction page |
-| `/fourier/` | `fourier.fourier_view` | GET | Fourier analysis page |
+| `/` | `home.dashboard_view` | GET | Single unified dashboard |
 | `/api/chart/` | `api_ajax.generate_chart` | POST | Generate matplotlib chart |
 | `/api/data/load/` | `api_ajax.load_api_data` | POST | Fetch ePlant API data |
 | `/api/data/download/` | `api_ajax.download_data` | GET | Download as CSV/JSON |
@@ -79,21 +83,46 @@ clires_project/
 ## Commands
 
 ```bash
-# Install dependencies (use venv at repo root)
-cd clires_project && pip install -r requirements.txt
+# ---- Docker (recommended) ----
+docker compose up --build          # Start app + Redis, accessible at http://localhost:8000
+docker compose down                # Stop services
+docker compose down -v             # Stop and remove volumes (nukes SQLite data)
+docker build -t clires-dashboard . # Build image for Cloud Run
 
-# Run development server
-cd clires_project && python manage.py runserver
-# Or from repo root:
-cd clires_project && ../venv/bin/python manage.py runserver
+# ---- Local dev without Docker ----
+pip install -r requirements.txt
+python manage.py runserver
 
-# Django management
+# ---- Django management ----
 python manage.py migrate          # Apply migrations (sessions only)
 python manage.py shell            # Django shell
 python manage.py collectstatic    # Collect static files (for production)
 ```
 
 **No tests exist.** No lint/format config.
+
+## Cloud Run Deployment
+
+```bash
+# Build and push to Artifact Registry
+gcloud builds submit --tag gcr.io/PROJECT/clires-dashboard
+
+# Deploy
+gcloud run deploy clires-dashboard \
+  --image gcr.io/PROJECT/clires-dashboard \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --memory 2Gi \
+  --set-env-vars REDIS_URL=redis://YOUR_REDIS_HOST:6379/1
+
+# Set SECRET_KEY via Secret Manager
+gcloud run deploy clires-dashboard \
+  --image gcr.io/PROJECT/clires-dashboard \
+  --set-secrets SECRET_KEY=clires-secret-key:latest
+```
+
+Redis must run as an external service (Cloud Memorystore, Upstash, or a Compute Engine VM). Cloud Run only runs one container per service.
 
 ## Core Patterns
 
@@ -127,9 +156,11 @@ All `/api/*` endpoints return HTML fragments (not JSON). They return `<div class
 | Variable | Purpose |
 |----------|---------|
 | `DEBUG` | Django debug mode (default: True) |
-| `SECRET_KEY` | Django secret key |
+| `SECRET_KEY` | Django secret key (required, no default in production) |
 | `ALLOWED_HOSTS` | Comma-separated allowed hosts (default: `*`) |
 | `REDIS_URL` | Redis URL (default: `redis://127.0.0.1:6379/1`) |
+| `CSRF_TRUSTED_ORIGINS` | Comma-separated trusted origins for CSRF (production) |
+| `PORT` | Gunicorn bind port (default: 8000) |
 | `EPLANT_USERNAME` | ePlant API username |
 | `EPLANT_PASSWORD` | ePlant API password |
 | `EPLANT_CLIENT_ID` | ePlant Cognito client ID |
