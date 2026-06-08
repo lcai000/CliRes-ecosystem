@@ -25,6 +25,11 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
+# ==================== ADD THESE TWO LINES HERE ====================
+ARG SECRET_KEY="temporary_dummy_key_just_for_building_static_files"
+ENV SECRET_KEY=$SECRET_KEY
+# ==================================================================
+
 RUN python manage.py collectstatic --noinput \
     && mkdir -p /app/media /app/staticfiles \
     && chown -R django:django /app
