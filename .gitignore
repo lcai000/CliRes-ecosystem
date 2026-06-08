@@ -4,3 +4,16 @@ __pycache__/
 .streamlit/config.toml
 .idea/
 data/data_for_labeling.csv
+
+/venv
+.env
+
+# Django
+clires_project/.env
+clires_project/db.sqlite3
+clires_project/staticfiles/
+clires_project/media/
+*.pyc
+*.pyo
+.vercel
+.DS_Store

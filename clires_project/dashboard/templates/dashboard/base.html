@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cli-Res Project Dashboard</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <!-- HTMX -->
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.10/dist/htmx.min.js"></script>
+    <script>
+        htmx.config.timeout = 30000;
+        document.addEventListener('htmx:timeout', function(evt) {
+            evt.target.innerHTML = '<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Request timed out. Please try again or narrow your selection.</div>';
+        });
+    </script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Fira Sans"', 'system-ui', 'sans-serif'],
+                        mono: ['"Fira Code"', 'ui-monospace', 'monospace'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#1E40AF',
+                            light: '#3B82F6',
+                            dark: '#1E3A8A',
+                        },
+                        cta: '#F59E0B',
+                    },
+                    borderRadius: {
+                        '2xl': '1rem',
+                        '3xl': '1.5rem',
+                    },
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <link rel="stylesheet" href="/static/dashboard/css/styles.css">
+
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline-block; }
+        .htmx-request.htmx-indicator { display: inline-block; }
+        .spinner {
+            display: inline-block; width: 1rem; height: 1rem;
+            border: 2px solid #cbd5e1; border-top-color: #1E40AF;
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Chart images */
+        #chart-area img,
+        #fourier-result img,
+        #comfort-chart img {
+            max-width: 100%; height: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+        }
+
+        /* Range slider value display */
+        input[type="range"] + small {
+            display: block; text-align: center;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50 text-primary-dark font-sans min-h-screen"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+
+    <!-- Sticky Top Navbar -->
+    <nav class="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+        <div class="max-w-screen-2xl mx-auto px-4 sm:px-6">
+            <div class="flex items-center justify-between h-14">
+                <!-- Left: Brand -->
+                <div class="flex items-center gap-3 shrink-0">
+                    <div class="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
+                        <i data-lucide="tree-pine" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <div class="hidden sm:block">
+                        <span class="font-bold text-primary-dark text-base">Cli-Res Dashboard</span>
+                        <span class="text-xs text-slate-400 block -mt-0.5">SEU Tree Monitoring</span>
+                    </div>
+                </div>
+
+                <!-- Center: Data Status -->
+                <div class="flex items-center gap-2" id="data-status-indicator">
+                    {% if combined_df_exists %}
+                        <span class="flex items-center gap-1.5 text-sm text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                            Data Loaded
+                        </span>
+                    {% elif api_df_exists or kestrel_df_exists %}
+                        <span class="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 px-3 py-1 rounded-full">
+                            <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                            Partial Data
+                        </span>
+                    {% else %}
+                        <span class="flex items-center gap-1.5 text-sm text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                            <span class="w-2 h-2 bg-slate-400 rounded-full"></span>
+                            No Data
+                        </span>
+                    {% endif %}
+                </div>
+
+                <!-- Right: Actions -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="document.getElementById('data-toolbar').toggleAttribute('data-open')"
+                            class="flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary px-3 py-1.5 rounded-xl hover:bg-slate-100 transition">
+                        <i data-lucide="database" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Data Sources</span>
+                    </button>
+                    <a href="/api/data/download/" class="flex items-center gap-1.5 text-sm text-slate-600 hover:text-primary px-3 py-1.5 rounded-xl hover:bg-slate-100 transition">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Export</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="max-w-screen-2xl mx-auto px-4 sm:px-6 py-6" id="main-content">
+        {% if messages %}
+            {% for message in messages %}
+                {% if message.tags == 'error' or message.tags == 'danger' %}
+                <div class="rounded-xl border border-red-200 bg-red-50 p-4 mb-4 text-sm text-red-800 flex items-start gap-2">
+                    <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% elif message.tags == 'warning' %}
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4 text-sm text-amber-800 flex items-start gap-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% elif message.tags == 'success' %}
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4 text-sm text-emerald-800 flex items-start gap-2">
+                    <i data-lucide="check-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% else %}
+                <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 mb-4 text-sm text-blue-800 flex items-start gap-2">
+                    <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                    <span>{{ message }}</span>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {# HTMX: reload main-content when data changes #}
+    <div hx-get="/" hx-trigger="plantDataLoaded from:body" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML" class="hidden"></div>
+
+    {% block extra_scripts %}{% endblock %}
+
+    <!-- Initialize Lucide icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+        // Also init after HTMX swaps
+        document.body.addEventListener('htmx:afterSwap', function() {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
+</body>
+</html>

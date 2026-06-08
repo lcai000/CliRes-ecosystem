@@ -1,0 +1,75 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+<h1>Fourier Analysis (Cycle Detector)</h1>
+<div class="mb-3">
+    <p><strong>What is this?</strong> This tool uses <strong>Fast Fourier Transform (FFT)</strong> to convert your tree's growth history into a "Frequency Spectrum."</p>
+    <ul>
+        <li><strong>Frequency:</strong> Finds repeating patterns (like the 24-hour day/night cycle).</li>
+        <li><strong>Amplitude:</strong> Measures how <em>strong</em> that cycle is, distinguishing living trees from dead wood.</li>
+    </ul>
+</div>
+
+{% if not has_data %}
+    <div class="alert alert-warning">No data found! Please go to the Home Page sidebar and click 'Fetch Tree Data' first.</div>
+    <div class="alert alert-info">Fourier analysis requires a historical timeline to detect patterns.</div>
+{% else %}
+    <form hx-post="/api/fourier/run/" hx-target="#fourier-result" hx-indicator="#fourier-spinner" id="fourier-form">
+        {% csrf_token %}
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Select Tree</label>
+                <select name="plant_name" class="form-select">
+                    {% for p in plant_names %}
+                        <option value="{{ p }}">{{ p }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Variable</label>
+                <select name="target_col" class="form-select">
+                    {% for col in numeric_columns %}
+                        <option value="{{ col }}" {% if forloop.counter0 == default_col_idx %}selected{% endif %}>{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Max Cycle Length (Hours)</label>
+                <input type="range" name="max_view" class="form-range" min="24" max="720" value="168" x-model="$el.value">
+                <small x-text="$el.value + ' hours'"></small>
+            </div>
+        </div>
+
+        <p class="text-muted small">Data is resampled to 1-hour intervals and interpolated to fill gaps.</p>
+
+        <button type="submit" class="btn btn-primary">
+            <span class="spinner htmx-indicator" id="fourier-spinner"></span>
+            Run Fourier Analysis
+        </button>
+    </form>
+
+    <hr>
+    <div id="fourier-result">
+        <div class="text-center text-muted py-5">Select a tree and click "Run Fourier Analysis"</div>
+    </div>
+
+    <hr>
+    <details>
+        <summary>Guide: Biology vs. Physics</summary>
+        <div class="p-3">
+            <h6>Why do dead trees have a 24-hour cycle?</h6>
+            <p>Dead wood expands when it gets hot and shrinks when it dries. This creates a small, perfect daily cycle driven by the sun.</p>
+            <h6>How to tell the difference:</h6>
+            <ul>
+                <li><strong>Living Tree:</strong> Active transpiration pulls water out, shrinking the trunk significantly. Amplitude is usually <strong>&gt; 15 microns</strong>.</li>
+                <li><strong>Dead Tree:</strong> Passive thermal expansion is subtle. Amplitude is usually <strong>&lt; 5 microns</strong>.</li>
+            </ul>
+        </div>
+    </details>
+{% endif %}
+
+<hr>
+<div class="text-muted small">
+    <p><strong>What is Fourier Analysis?</strong> Named after Joseph Fourier, it's a mathematical method that decomposes any signal (like tree growth over time) into its constituent frequencies — revealing hidden cycles and periodic patterns. Just as a prism splits white light into a rainbow of colors, the Fourier Transform splits a time-series into its component rhythms, making it especially useful for diagnosing tree health by distinguishing the strong daily rhythms of living trees from the weak passive fluctuations of dead wood.</p>
+</div>
+{% endblock %}
