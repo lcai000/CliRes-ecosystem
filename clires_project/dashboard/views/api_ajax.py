@@ -106,32 +106,43 @@ def load_api_data(request):
         )
 
     api_df = data_result.data
+    loaded_count = len(api_df)
     if api_df.empty:
         return HttpResponse(
             '<div class="alert alert-warning">No data found for selected range. Please try a different date range or tree selection.</div>'
             '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
         )
 
+    existing_df = get_session_df(request, 'api_df')
+    if existing_df is not None and not existing_df.empty:
+        api_df = pd.concat([existing_df, api_df], ignore_index=True)
+        api_df = api_df.drop_duplicates(subset=[COL_TIMESTAMP, COL_PLANT_NAME], keep='last')
     set_session_df(request, 'api_df', api_df)
     merge_combine_data(request)
 
+    total_count = len(api_df)
     count_warning = ''
-    if len(api_df) > 10000:
+    if total_count > 10000:
         count_warning = (
             f'<div class="alert alert-warning mt-2">'
-            f'Loaded {len(api_df):,} records. Large datasets may slow down charts. '
-            f'Consider narrowing the date range for better performance.'
+            f'Total {total_count:,} records in session. Large datasets may slow down charts. '
+            f'Consider narrowing the date range or clearing unused data.'
             f'</div>'
         )
 
-    return HttpResponse(f"""
-    <div class="alert alert-success">Loaded {len(api_df)} records for {len(selected)} trees!</div>
+    existing_count = total_count - loaded_count
+    accum_note = f' ({existing_count:,} existing + {loaded_count:,} new)' if existing_count > 0 else ''
+    plant_list = ', '.join(d.get('name', '') for d in selected_devices)
+    response = HttpResponse(f"""
+    <div class="alert alert-success">Loaded {loaded_count:,} records for {plant_list}. Total in session: {total_count:,} records across all plants{accum_note}.</div>
     {count_warning}
     <div class="d-flex gap-2 mt-2">
         <a href="/api/data/download/?format=csv" class="btn btn-sm btn-outline-primary">Download CSV</a>
         <a href="/api/data/download/?format=json" class="btn btn-sm btn-outline-secondary">Download JSON</a>
     </div>
     """)
+    response['HX-Trigger'] = 'plantDataLoaded'
+    return response
 
 
 @require_http_methods(["POST"])
@@ -168,7 +179,9 @@ def fetch_weather(request):
 
     set_session_df(request, 'history_df', result.data)
     merge_combine_data(request)
-    return HttpResponse('<div class="alert alert-success">Historical weather loaded!</div>')
+    response = HttpResponse('<div class="alert alert-success">Historical weather loaded!</div>')
+    response['HX-Trigger'] = 'plantDataLoaded'
+    return response
 
 
 @require_http_methods(["POST"])
@@ -184,7 +197,9 @@ def fetch_lcra_live(request):
 
     set_session_df(request, 'lcra_df', result.data)
     merge_combine_data(request)
-    return HttpResponse('<div class="alert alert-success">Live weather loaded!</div>')
+    response = HttpResponse('<div class="alert alert-success">Live weather loaded!</div>')
+    response['HX-Trigger'] = 'plantDataLoaded'
+    return response
 
 
 @require_http_methods(["POST"])
@@ -209,7 +224,10 @@ def upload_kestrel(request):
         merge_combine_data(request)
         msgs += f'<div class="alert alert-success">Kestrel files loaded! ({len(kestrel_df)} rows)</div>'
 
-    return HttpResponse(msgs or '<div class="alert alert-warning">No data found in files.</div>')
+    response = HttpResponse(msgs or '<div class="alert alert-warning">No data found in files.</div>')
+    if result.data:
+        response['HX-Trigger'] = 'plantDataLoaded'
+    return response
 
 
 @require_http_methods(["GET"])
@@ -252,7 +270,9 @@ def extract_historical(request):
 
     set_session_df(request, 'hist_csv_df', result.data)
     merge_combine_data(request)
-    return HttpResponse(f'<div class="alert alert-success">Extracted {len(result.data)} readings for target trees!</div>')
+    response = HttpResponse(f'<div class="alert alert-success">Extracted {len(result.data)} readings for target trees!</div>')
+    response['HX-Trigger'] = 'plantDataLoaded'
+    return response
 
 
 # ---- CHARTING ----

@@ -7,7 +7,7 @@
 <!-- ================================================================ -->
 <!-- COLLAPSIBLE DATA TOOLBAR -->
 <!-- ================================================================ -->
-<details id="data-toolbar" class="mb-6" {% if not combined_df_exists and not api_df_exists and not kestrel_df_exists %}open{% endif %}>
+<details id="data-toolbar" class="mb-6" open>
     <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition select-none bg-white rounded-2xl border border-slate-200 px-5 py-3 shadow-sm">
         <i data-lucide="database" class="w-4 h-4"></i>
         <span>Data Sources</span>
@@ -160,17 +160,12 @@
 </details>
 
 <!-- ================================================================ -->
-<!-- SECTION 1: OVERVIEW -->
-<!-- ================================================================ -->
-{% include "dashboard/sections/overview.html" %}
-
-<!-- ================================================================ -->
-<!-- SECTION 2: GRAPHING TOOL -->
+<!-- SECTION 1: GRAPHING TOOL -->
 <!-- ================================================================ -->
 {% include "dashboard/sections/graphing.html" %}
 
 <!-- ================================================================ -->
-<!-- SECTION 3: ANALYSIS (2-column: Fourier + Comfort) -->
+<!-- SECTION 2: ANALYSIS (2-column: Fourier + Comfort) -->
 <!-- ================================================================ -->
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8" id="analysis-grid">
     {% include "dashboard/sections/fourier.html" %}
@@ -178,7 +173,7 @@
 </div>
 
 <!-- ================================================================ -->
-<!-- SECTION 4: PREDICTION TOOL -->
+<!-- SECTION 3: PREDICTION TOOL -->
 <!-- ================================================================ -->
 {% include "dashboard/sections/prediction.html" %}
 

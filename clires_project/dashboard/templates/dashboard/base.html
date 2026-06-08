@@ -166,6 +166,9 @@
         {% block content %}{% endblock %}
     </main>
 
+    {# HTMX: reload main-content when data changes #}
+    <div hx-get="/" hx-trigger="plantDataLoaded from:body" hx-target="#main-content" hx-select="#main-content" hx-swap="outerHTML" class="hidden"></div>
+
     {% block extra_scripts %}{% endblock %}
 
     <!-- Initialize Lucide icons -->
