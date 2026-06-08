@@ -1,0 +1,104 @@
+<!-- sections/prediction.html — ML Prediction Tool Section -->
+
+<section class="mb-8" id="prediction-section">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="brain" class="w-5 h-5 text-cta"></i>
+            </div>
+            <h2 class="text-xl font-semibold text-primary-dark font-mono">AI Prediction Tool</h2>
+        </div>
+
+        <p class="text-slate-500 text-sm mb-4">
+            This AI model has learned patterns between environmental conditions and tree growth.
+            Use presets or sliders to simulate conditions and predict growth.
+        </p>
+
+        {% if not has_pred_model %}
+            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-start gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span>Model not found. Please train the model first by running <code class="bg-red-100 px-1.5 py-0.5 rounded text-xs font-mono">trainers/train_model.py</code>.</span>
+            </div>
+        {% else %}
+            <!-- Presets -->
+            <div class="mb-4">
+                <h4 class="text-sm font-semibold text-slate-700 mb-2">1. Select a Scenario</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button class="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-blue-300 text-blue-700 text-sm font-medium hover:bg-blue-50 transition"
+                            hx-post="/api/lcra/fetch/" hx-target="#lcra-result"
+                            @click="setTimeout(() => { $el.closest('form').dispatchEvent(new Event('submit')) }, 1500)">
+                        <i data-lucide="cloud-sun" class="w-4 h-4"></i>
+                        Live Austin Weather
+                    </button>
+                    <button class="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition"
+                            onclick="document.getElementById('temp-slider').value=24; document.getElementById('temp-val').textContent='24.0 C'; document.getElementById('hum-slider').value=65; document.getElementById('hum-val').textContent='65%'; document.getElementById('dew-slider').value=17; document.getElementById('dew-val').textContent='17.0 C';">
+                        <i data-lucide="sun" class="w-4 h-4"></i>
+                        Best Conditions
+                    </button>
+                    <button class="flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-red-300 text-red-700 text-sm font-medium hover:bg-red-50 transition"
+                            onclick="document.getElementById('temp-slider').value=38; document.getElementById('temp-val').textContent='38.0 C'; document.getElementById('hum-slider').value=20; document.getElementById('hum-val').textContent='20%'; document.getElementById('dew-slider').value=5; document.getElementById('dew-val').textContent='5.0 C';">
+                        <i data-lucide="flame" class="w-4 h-4"></i>
+                        Worst Conditions
+                    </button>
+                </div>
+                <div id="lcra-result" class="mt-2 text-sm"></div>
+            </div>
+
+            <!-- Fine-Tune -->
+            <h4 class="text-sm font-semibold text-slate-700 mb-2">2. Fine-Tune Conditions</h4>
+            <form hx-post="/api/prediction/run/" hx-target="#prediction-result" hx-indicator="#pred-spinner" id="pred-form">
+                {% csrf_token %}
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Temperature (C)</label>
+                        <input type="range" id="temp-slider" name="temp" class="w-full accent-primary" min="-10" max="45" value="25" step="0.5"
+                            x-data x-on:input="document.getElementById('temp-val').textContent = $el.value + ' C'">
+                        <small class="text-xs text-slate-500" id="temp-val">25.0 C</small>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Humidity (%)</label>
+                        <input type="range" id="hum-slider" name="humidity" class="w-full accent-primary" min="0" max="100" value="50" step="1"
+                            x-data x-on:input="document.getElementById('hum-val').textContent = $el.value + '%'">
+                        <small class="text-xs text-slate-500" id="hum-val">50%</small>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Dew Point (C)</label>
+                        <input type="range" id="dew-slider" name="dew_point" class="w-full accent-primary" min="-10" max="30" value="15" step="0.5"
+                            x-data x-on:input="document.getElementById('dew-val').textContent = $el.value + ' C'">
+                        <small class="text-xs text-slate-500" id="dew-val">15.0 C</small>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Plant Name</label>
+                        <select name="plant_name" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                            {% for p in pred_plant_names %}
+                                <option value="{{ p }}">{{ p }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="inline-flex items-center gap-2 bg-cta text-white px-6 py-2.5 rounded-xl font-medium text-sm hover:bg-amber-600 transition shadow-sm">
+                    <span class="spinner htmx-indicator" id="pred-spinner"></span>
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                    Run Prediction Model
+                </button>
+            </form>
+
+            <hr class="my-5 border-slate-200">
+            <div id="prediction-result">
+                <div class="text-center text-slate-400 py-4 text-sm">Adjust conditions and click "Run Prediction Model"</div>
+            </div>
+
+            <!-- Model Details -->
+            {% if model_performance %}
+            <details class="mt-4 group">
+                <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition select-none">
+                    <i data-lucide="chevron-right" class="w-4 h-4 transition-transform group-open:rotate-90"></i>
+                    Model Details &amp; Performance
+                </summary>
+                <pre class="mt-3 text-xs bg-slate-50 rounded-2xl p-4 overflow-x-auto text-slate-700">{{ model_performance }}</pre>
+            </details>
+            {% endif %}
+        {% endif %}
+    </div>
+</section>

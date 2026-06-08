@@ -1,13 +1,11 @@
 from django.urls import path
-from dashboard.views import home, graphing, comfort, prediction, fourier, api_ajax
+from dashboard.views import home, api_ajax
 
 urlpatterns = [
-    path('', home.home_view, name='home'),
-    path('graphing/', graphing.graphing_view, name='graphing'),
-    path('comfort/', comfort.comfort_view, name='comfort'),
-    path('prediction/', prediction.prediction_view, name='prediction'),
-    path('fourier/', fourier.fourier_view, name='fourier'),
-    # HTMX partial endpoints
+    # Single unified dashboard
+    path('', home.dashboard_view, name='dashboard'),
+
+    # HTMX partial endpoints (unchanged)
     path('api/chart/', api_ajax.generate_chart, name='api_chart'),
     path('api/data/load/', api_ajax.load_api_data, name='api_load_data'),
     path('api/data/download/', api_ajax.download_data, name='api_download_data'),

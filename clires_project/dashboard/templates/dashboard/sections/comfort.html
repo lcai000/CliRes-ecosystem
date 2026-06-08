@@ -1,0 +1,52 @@
+<!-- sections/comfort.html — Tree Comfort Index Section -->
+
+<section class="mb-8" id="comfort-section">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-9 h-9 bg-emerald-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="thermometer" class="w-5 h-5 text-emerald-700"></i>
+            </div>
+            <h2 class="text-xl font-semibold text-primary-dark font-mono">Tree Comfort Index</h2>
+        </div>
+
+        <p class="text-slate-500 text-sm mb-4">Calculates a comfort index from Kestrel data based on temperature, humidity, dew point, and VPD.</p>
+
+        {% if not has_comfort_data %}
+            <div class="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span>Upload a Kestrel data file from the toolbar above to use this tool.</span>
+            </div>
+        {% else %}
+            <form hx-post="/api/comfort/run/" hx-target="#comfort-chart" hx-indicator="#comfort-spinner" id="comfort-form">
+                {% csrf_token %}
+                <div class="flex flex-wrap items-end gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Time Granularity</label>
+                        <select name="aggregation_level" class="border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition">
+                            <option value="Raw">Raw</option>
+                            <option value="Daily" selected>Daily</option>
+                            <option value="Weekly">Weekly</option>
+                            <option value="Monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="use_facets" value="facets" class="rounded border-slate-300 text-primary focus:ring-primary/20">
+                            Show each plant separately
+                        </label>
+                    </div>
+                    <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-5 py-2 rounded-xl font-medium text-sm hover:bg-blue-700 transition shadow-sm"
+                            hx-post="/api/comfort/run/" hx-target="#comfort-chart" hx-indicator="#comfort-spinner" hx-include="#comfort-form">
+                        <span class="spinner htmx-indicator" id="comfort-spinner"></span>
+                        <i data-lucide="play" class="w-4 h-4"></i>
+                        Calculate Comfort Index
+                    </button>
+                </div>
+            </form>
+
+            <div id="comfort-chart">
+                <div class="text-center text-slate-400 py-8 text-sm">Click "Calculate Comfort Index" to begin analysis</div>
+            </div>
+        {% endif %}
+    </div>
+</section>

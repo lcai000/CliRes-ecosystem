@@ -142,8 +142,8 @@ def clear_data(request):
     for key in ['api_df', 'kestrel_df', 'lcra_df', 'history_df', 'hist_csv_df', 'combined_df']:
         delete_session_df(request, key)
     return HttpResponse(
-        '<div class="alert alert-success">All data cleared.</div>'
-        '<div hx-get="/" hx-target="#main-content" hx-trigger="load delay:500ms"></div>'
+        '<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 mb-3">All data cleared. Reloading...</div>'
+        '<div hx-get="/" hx-target="#main-content" hx-select="#main-content" hx-trigger="load delay:300ms" hx-swap="innerHTML"></div>'
     )
 
 

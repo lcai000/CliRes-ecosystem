@@ -1,12 +1,16 @@
+import os
+import joblib
 import pandas as pd
 import numpy as np
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.contrib import messages
 from django.core.cache import cache
+from django.conf import settings
 from datetime import timedelta, date
 
 from dashboard.helpers.config import COL_TIMESTAMP, COL_PLANT_NAME
+from dashboard.helpers.data_processing import standardize_dataframe
 from dashboard.helpers.cache_utils import DataResult
 
 
@@ -157,17 +161,131 @@ def home_view(request):
 
 
 def devices_list(request):
-    """HTMX endpoint to fetch device list for sidebar."""
+    """HTMX endpoint to fetch device list for sidebar/toolbar."""
     devices, error = _get_cached_devices()
     if error:
-        devices_html = f'<select name="selected_devices" multiple class="form-select form-select-sm" size="6"><option disabled>{error}</option></select>'
+        devices_html = f'<select name="selected_devices" multiple class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm h-28 focus:ring-2 focus:ring-primary/20 focus:border-primary transition"><option disabled>{error}</option></select>'
         return HttpResponse(devices_html)
 
     rows = ''.join(
         f'<option value="{d["name"]}">{d["name"]}</option>'
         for d in devices
     )
-    devices_html = f'<select name="selected_devices" multiple class="form-select form-select-sm" size="6">{rows}</select>'
+    devices_html = f'<select name="selected_devices" multiple class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm h-28 focus:ring-2 focus:ring-primary/20 focus:border-primary transition">{rows}</select>'
     return HttpResponse(devices_html)
+
+
+def dashboard_view(request):
+    """Single unified dashboard page with all sections.
+
+    Merges context from all old page views into one super-context so that
+    every section partial has the variables it needs.
+    """
+    if not request.session.session_key:
+        request.session.save()
+
+    today = date.today()
+    context = {
+        'default_start_date': (today - timedelta(days=30)).isoformat(),
+        'default_end_date': today.isoformat(),
+    }
+
+    # ---- Data existence flags ----
+    api_df = get_session_df(request, 'api_df')
+    kestrel_df = get_session_df(request, 'kestrel_df')
+    combined_df = get_session_df(request, 'combined_df')
+
+    context['api_df_exists'] = api_df is not None
+    context['kestrel_df_exists'] = kestrel_df is not None
+    context['combined_df_exists'] = combined_df is not None
+
+    # Date range from combined data
+    if combined_df is not None and not combined_df.empty and COL_TIMESTAMP in combined_df.columns:
+        ts = pd.to_datetime(combined_df[COL_TIMESTAMP], errors='coerce')
+        min_d = ts.min().date()
+        max_d = ts.max().date()
+        if max_d < today:
+            max_d = today
+        if min_d >= max_d:
+            max_d = min_d + timedelta(days=1)
+        context['min_date'] = min_d.isoformat()
+        context['max_date'] = max_d.isoformat()
+
+    # ---- Data Stats (for overview cards) ----
+    data_stats = {'row_count': '--', 'plant_count': '--', 'date_range': '--'}
+    if combined_df is not None and not combined_df.empty:
+        data_stats['row_count'] = f"{len(combined_df):,}"
+        if COL_PLANT_NAME in combined_df.columns:
+            data_stats['plant_count'] = str(combined_df[COL_PLANT_NAME].nunique())
+        if COL_TIMESTAMP in combined_df.columns:
+            ts = pd.to_datetime(combined_df[COL_TIMESTAMP], errors='coerce')
+            if not ts.empty:
+                data_stats['date_range'] = f"{ts.min().date()} – {ts.max().date()}"
+    context['data_stats'] = data_stats
+
+    # ---- Graphing Tool context ----
+    if combined_df is not None and not combined_df.empty:
+        result = standardize_dataframe(combined_df)
+        if result.ok:
+            cdf = result.data
+            context['has_graph_data'] = True
+            context['data_head'] = cdf.head(10).to_html(
+                classes='table-auto w-full text-xs border-collapse', index=False
+            )
+            context['graph_columns'] = cdf.columns.tolist()
+            context['graph_numeric_columns'] = cdf.select_dtypes(include=np.number).columns.tolist()
+            context['graph_plant_names'] = sorted(cdf[COL_PLANT_NAME].unique().tolist()) if COL_PLANT_NAME in cdf.columns else []
+        else:
+            context['has_graph_data'] = False
+            messages.error(request, result.errors[0])
+    else:
+        context['has_graph_data'] = False
+
+    # ---- Comfort context ----
+    if kestrel_df is not None and not kestrel_df.empty:
+        context['has_comfort_data'] = True
+    else:
+        context['has_comfort_data'] = False
+
+    # ---- Fourier context ----
+    if combined_df is not None and not combined_df.empty:
+        context['has_fourier_data'] = True
+        context['fourier_plant_names'] = sorted(combined_df[COL_PLANT_NAME].unique().tolist()) if COL_PLANT_NAME in combined_df.columns else []
+        numeric_cols = combined_df.select_dtypes(include=np.number).columns.tolist()
+        context['fourier_numeric_columns'] = numeric_cols
+        default_col_idx = 0
+        for i, col in enumerate(numeric_cols):
+            if "Dendrometer" in col:
+                default_col_idx = i
+                break
+        context['fourier_default_col_idx'] = default_col_idx
+    else:
+        context['has_fourier_data'] = False
+
+    # ---- Prediction context ----
+    model_columns = None
+    pred_plant_names = []
+    perf_text = ""
+    try:
+        model_path = os.path.join(settings.MODELS_DIR, 'tree_growth_model.pkl')
+        columns_path = os.path.join(settings.MODELS_DIR, 'model_columns.pkl')
+        if os.path.exists(model_path) and os.path.exists(columns_path):
+            model_columns = joblib.load(columns_path)
+            pred_plant_names = sorted([col.replace('Plant_', '') for col in model_columns if col.startswith('Plant_')])
+    except Exception:
+        pass
+
+    has_pred_model = model_columns is not None and len(pred_plant_names) > 0
+
+    perf_path = os.path.join(settings.MODELS_DIR, 'model_performance.txt')
+    if os.path.exists(perf_path):
+        with open(perf_path, 'r') as f:
+            perf_text = f.read()
+
+    context['has_pred_model'] = has_pred_model
+    context['pred_plant_names'] = pred_plant_names
+    context['model_performance'] = perf_text
+
+    return render(request, 'dashboard/dashboard.html', context)
 
 

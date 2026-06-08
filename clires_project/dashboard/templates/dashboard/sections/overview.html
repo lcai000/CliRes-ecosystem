@@ -1,0 +1,59 @@
+<!-- sections/overview.html — Overview/Summary Section -->
+{% load static %}
+
+<section class="mb-8">
+    <div class="bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+        <div class="flex items-center gap-3 mb-5">
+            <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                <i data-lucide="layout-dashboard" class="w-5 h-5 text-primary"></i>
+            </div>
+            <h2 class="text-xl font-semibold text-primary-dark font-mono">Overview</h2>
+        </div>
+
+        <p class="text-slate-600 mb-5">
+            Welcome to the Cli-Res Analysis Dashboard. Load data from the toolbar above, then use the analysis tools below.
+        </p>
+
+        <!-- Data Stats Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div class="text-2xl font-bold text-primary font-mono">{{ data_stats.row_count|default:"--" }}</div>
+                <div class="text-xs text-slate-500 mt-1">Data Rows</div>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div class="text-2xl font-bold text-primary font-mono">{{ data_stats.plant_count|default:"--" }}</div>
+                <div class="text-xs text-slate-500 mt-1">Plants</div>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div class="text-sm font-bold text-primary font-mono truncate">{{ data_stats.date_range|default:"--" }}</div>
+                <div class="text-xs text-slate-500 mt-1">Date Range</div>
+            </div>
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                <div class="text-sm font-medium text-primary font-mono">
+                    {% if api_df_exists %}API{% endif %}
+                    {% if kestrel_df_exists %}{% if api_df_exists %}, {% endif %}Kestrel{% endif %}
+                    {% if not api_df_exists and not kestrel_df_exists %}--{% endif %}
+                </div>
+                <div class="text-xs text-slate-500 mt-1">Sources</div>
+            </div>
+        </div>
+
+        <!-- Plot Images (collapsible) -->
+        <details class="group">
+            <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary transition select-none">
+                <i data-lucide="chevron-right" class="w-4 h-4 transition-transform group-open:rotate-90"></i>
+                Maps &amp; Plot Images
+            </summary>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-3">
+                    <img src="{% static 'dashboard/images/St.Edwards_plot_map.jpg' %}"
+                         class="w-full rounded-2xl border border-slate-200" alt="Plot Map" loading="lazy">
+                </div>
+                {% for i in "12345" %}
+                <img src="{% static 'dashboard/images/Plot' %}{{ i }}.jpg"
+                     class="w-full rounded-2xl border border-slate-200" alt="Plot {{ i }}" loading="lazy">
+                {% endfor %}
+            </div>
+        </details>
+    </div>
+</section>
