@@ -72,7 +72,8 @@ CACHES = {
     }
 }
 
-# Fallback to local memory cache if Redis is not available
+# Fallback to file-based cache if Redis is not available.
+# LocMemCache is per-process and incompatible with multi-worker gunicorn.
 try:
     import redis
     r = redis.Redis.from_url(REDIS_URL)
@@ -80,8 +81,8 @@ try:
 except Exception:
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'clires-cache',
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': BASE_DIR / 'cache',
         }
     }
 

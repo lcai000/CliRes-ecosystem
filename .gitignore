@@ -21,3 +21,4 @@ clires_project/media/
 
 # db
 db.sqlite3
+cache
