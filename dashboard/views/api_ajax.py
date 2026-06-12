@@ -35,7 +35,8 @@ from dashboard.views.charting_utils import (
 @require_http_methods(["POST"])
 def load_api_data(request):
     """Load tree data from ePlant API."""
-    from dashboard.helpers.api_helpers import get_access_token, fetch_plant_names, fetch_all_data
+    from dashboard.helpers.api_helpers import get_access_token, fetch_all_data
+    from dashboard.views.home import _get_cached_devices
 
     if not request.session.session_key:
         request.session.save()
@@ -81,15 +82,14 @@ def load_api_data(request):
 
     access_token = token_result.data
 
-    # Fetch device list to get full metadata
-    devices_result = fetch_plant_names(access_token)
-    if not devices_result.ok:
+    # Use shared cached device list (avoids duplicate API call)
+    all_devices, error = _get_cached_devices()
+    if error:
         return HttpResponse(
-            f'<div class="alert alert-danger">{devices_result.errors[0]}</div>'
+            f'<div class="alert alert-danger">{error}</div>'
             '<div hx-get="/api/devices/list/" hx-target="#device-select-container" hx-trigger="load" hx-swap="innerHTML" id="dev-refresh"></div>'
         )
 
-    all_devices = devices_result.data
     selected_devices = [d for d in all_devices if d.get('name') in selected]
 
     if not selected_devices:

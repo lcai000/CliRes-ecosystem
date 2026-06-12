@@ -1,9 +1,8 @@
 import requests
 import pandas as pd
 from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
-import time
-import hashlib
 from django.core.cache import cache
 
 from dashboard.helpers.config import COL_TIMESTAMP, COL_PLANT_NAME
@@ -41,12 +40,11 @@ def get_access_token(username, password, client_id):
 
 
 def fetch_plant_names(access_token):
-    """Fetches ALL pages of association metadata to link plant names to serial numbers."""
-    cache_key = f"api:devices:{hashlib.md5(access_token.encode()).hexdigest()}"
-    cached = cache.get(cache_key)
-    if cached:
-        return DataResult(data=cached)
+    """Fetches ALL pages of association metadata to link plant names to serial numbers.
 
+    NOTE: Caching is handled by _get_cached_devices() in home.py (key: devices:shared:v1).
+    This function is a pure fetcher — do not add caching here.
+    """
     all_items = []
     start_index = None
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -91,55 +89,70 @@ def fetch_plant_names(access_token):
             'last_active': data['last_active']
         })
 
-    cache.set(cache_key, devices, timeout=3600)
     return DataResult(data=devices)
 
 
 def fetch_all_data(selected_devices, start_date, end_date, access_token):
-    """Fetches detailed data for all selected plants."""
+    """Fetches detailed data for all selected plants in parallel."""
     if not selected_devices:
         return DataResult(data=pd.DataFrame())
 
     headers = {"Authorization": f"Bearer {access_token}"}
     all_data_chunks = []
     chunk_size_days = 30
+    plant_names = [d.get('name') for d in selected_devices]
 
-    for device in selected_devices:
-        plant_name = device.get('name')
-        current_start = start_date
-        while current_start <= end_date:
-            current_end = current_start + timedelta(days=chunk_size_days)
-            if current_end > end_date:
-                current_end = end_date
+    # Build list of time chunks (30-day windows)
+    time_chunks = []
+    current_start = start_date
+    while current_start <= end_date:
+        current_end = current_start + timedelta(days=chunk_size_days)
+        if current_end > end_date:
+            current_end = end_date
+        time_chunks.append((current_start, current_end))
+        current_start = current_end + timedelta(days=1)
 
-            payload = {
-                "plantNames": [plant_name],
-                "timeStart": current_start.strftime("%Y-%m-%d %H:%M"),
-                "timeStop": current_end.strftime("%Y-%m-%d %H:%M")
-            }
+    def fetch_chunk(chunk_start, chunk_end):
+        """Fetch a single 30-day window for ALL plants at once."""
+        chunks = []
+        payload = {
+            "plantNames": plant_names,
+            "timeStart": chunk_start.strftime("%Y-%m-%d %H:%M"),
+            "timeStop": chunk_end.strftime("%Y-%m-%d %H:%M")
+        }
+        try:
+            response = requests.post(f"{API_URL}/plantdata", headers=headers, json=payload, timeout=60)
+            response.raise_for_status()
+            if response.text:
+                try:
+                    json_response = response.json()
+                    if isinstance(json_response, dict):
+                        for p_name, data_points in json_response.items():
+                            if data_points:
+                                df = pd.DataFrame(data_points)
+                                df[COL_PLANT_NAME] = p_name
+                                chunks.append(df)
+                    elif isinstance(json_response, list):
+                        if json_response:
+                            df = pd.DataFrame(json_response)
+                            df[COL_PLANT_NAME] = plant_names[0] if plant_names else ''
+                            chunks.append(df)
+                except json.JSONDecodeError:
+                    pass
+        except Exception:
+            pass
+        return chunks
+
+    # Fetch all time chunks in parallel
+    max_workers = min(5, len(time_chunks))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(fetch_chunk, cs, ce): (cs, ce) for cs, ce in time_chunks}
+        for future in as_completed(futures):
             try:
-                response = requests.post(f"{API_URL}/plantdata", headers=headers, json=payload, timeout=60)
-                response.raise_for_status()
-                if response.text:
-                    try:
-                        json_response = response.json()
-                        if isinstance(json_response, dict):
-                            for p_name, data_points in json_response.items():
-                                if data_points:
-                                    df = pd.DataFrame(data_points)
-                                    df[COL_PLANT_NAME] = plant_name
-                                    all_data_chunks.append(df)
-                        elif isinstance(json_response, list):
-                            if json_response:
-                                df = pd.DataFrame(json_response)
-                                df[COL_PLANT_NAME] = plant_name
-                                all_data_chunks.append(df)
-                    except json.JSONDecodeError:
-                        pass
+                chunks = future.result()
+                all_data_chunks.extend(chunks)
             except Exception:
                 pass
-            current_start = current_end + timedelta(days=1)
-            time.sleep(0.1)
 
     if not all_data_chunks:
         return DataResult(data=pd.DataFrame(), warnings=["The API returned no data for the selected criteria."])

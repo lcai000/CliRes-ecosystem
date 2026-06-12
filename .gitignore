@@ -18,3 +18,6 @@ clires_project/media/
 *.pyo
 .vercel
 .DS_Store
+
+# db
+db.sqlite3

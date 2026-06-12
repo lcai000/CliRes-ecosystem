@@ -49,7 +49,7 @@ def _get_cached_devices():
         if not devices_result.data:
             return None, "No devices found for this account."
 
-        cache.set(CACHE_KEY, devices_result.data, timeout=3600)
+        cache.set(CACHE_KEY, devices_result.data, timeout=86400)  # 24h — device list rarely changes
         return devices_result.data, None
     except Exception as e:
         return None, str(e)
