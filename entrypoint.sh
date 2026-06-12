@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+python manage.py collectstatic --noinput
 python manage.py migrate --noinput
 
 exec gunicorn clires_dashboard.wsgi:application \

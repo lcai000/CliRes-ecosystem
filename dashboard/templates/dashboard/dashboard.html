@@ -58,20 +58,21 @@
             </div>
 
             <!-- Right: stacked Weather, Manual Upload, Historical CSV -->
-            <div class="flex flex-col gap-5">
+            <div class="flex flex-col gap-3">
                 <!-- Weather Data -->
-                <div class="bg-slate-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
+                <details class="bg-slate-50 rounded-2xl p-3 group">
+                    <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-primary transition select-none">
+                        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform group-open:rotate-90"></i>
                         <i data-lucide="cloud" class="w-4 h-4 text-sky-600"></i>
-                        <h6 class="text-sm font-semibold text-slate-700">Weather Data</h6>
-                    </div>
-                    <div class="space-y-3">
+                        Weather Data
+                    </summary>
+                    <div class="mt-2 space-y-2">
                         <!-- Open-Meteo -->
                         <form hx-post="/api/weather/fetch/" hx-target="#weather-result" hx-indicator="#weather-spinner">
                             {% csrf_token %}
                             <input type="hidden" name="weather_start" value="{{ min_date|default:'' }}">
                             <input type="hidden" name="weather_end" value="{{ max_date|default:'' }}">
-                            <button type="submit" class="inline-flex items-center gap-2 border border-slate-300 text-slate-700 px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-slate-100 transition w-full justify-center">
+                            <button type="submit" class="inline-flex items-center gap-2 border border-slate-300 text-slate-700 px-4 py-1 rounded-xl text-sm font-medium hover:bg-slate-100 transition w-full justify-center">
                                 <span class="spinner htmx-indicator" id="weather-spinner"></span>
                                 <i data-lucide="cloud-rain" class="w-4 h-4"></i>
                                 Fetch Historical Weather (Open-Meteo)
@@ -82,7 +83,7 @@
                         <!-- LCRA -->
                         <form hx-post="/api/lcra/fetch/" hx-target="#lcra-result" hx-indicator="#lcra-spinner-live">
                             {% csrf_token %}
-                            <button type="submit" class="inline-flex items-center gap-2 border border-blue-300 text-blue-700 px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-50 transition w-full justify-center">
+                            <button type="submit" class="inline-flex items-center gap-2 border border-blue-300 text-blue-700 px-4 py-1 rounded-xl text-sm font-medium hover:bg-blue-50 transition w-full justify-center">
                                 <span class="spinner htmx-indicator" id="lcra-spinner-live"></span>
                                 <i data-lucide="zap" class="w-4 h-4"></i>
                                 Fetch Live LCRA Weather
@@ -90,42 +91,44 @@
                             <div id="lcra-result" class="text-xs mt-1"></div>
                         </form>
                     </div>
-                </div>
+                </details>
 
                 <!-- Manual Upload (Kestrel) -->
-                <div class="bg-slate-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
+                <details class="bg-slate-50 rounded-2xl p-3 group">
+                    <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-primary transition select-none">
+                        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform group-open:rotate-90"></i>
                         <i data-lucide="upload" class="w-4 h-4 text-emerald-600"></i>
-                        <h6 class="text-sm font-semibold text-slate-700">Manual Upload (Kestrel)</h6>
-                    </div>
-                    <form hx-encoding="multipart/form-data" hx-post="/api/data/upload/" hx-target="#kestrel-result" hx-indicator="#kestrel-spinner" class="space-y-2">
+                        Manual Upload (Kestrel)
+                    </summary>
+                    <form hx-encoding="multipart/form-data" hx-post="/api/data/upload/" hx-target="#kestrel-result" hx-indicator="#kestrel-spinner" class="mt-2 space-y-2">
                         {% csrf_token %}
-                        <input type="file" name="kestrel_files" multiple accept=".csv" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-blue-700">
-                        <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                        <input type="file" name="kestrel_files" multiple accept=".csv" class="w-full border border-slate-300 rounded-xl px-3 py-1 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-blue-700">
+                        <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
                             <span class="spinner htmx-indicator" id="kestrel-spinner"></span>
                             Upload Files
                         </button>
                         <div id="kestrel-result" class="text-xs"></div>
                     </form>
-                </div>
+                </details>
 
                 <!-- Large Historical CSV -->
-                <div class="bg-slate-50 rounded-2xl p-4">
-                    <div class="flex items-center gap-2 mb-3">
+                <details class="bg-slate-50 rounded-2xl p-3 group">
+                    <summary class="cursor-pointer flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-primary transition select-none">
+                        <i data-lucide="chevron-right" class="w-4 h-4 transition-transform group-open:rotate-90"></i>
                         <i data-lucide="file-spreadsheet" class="w-4 h-4 text-purple-600"></i>
-                        <h6 class="text-sm font-semibold text-slate-700">Large Historical CSV</h6>
-                    </div>
-                    <form hx-encoding="multipart/form-data" hx-post="/api/data/historical/" hx-target="#hist-result" hx-indicator="#hist-spinner" class="space-y-2">
+                        Large Historical CSV
+                    </summary>
+                    <form hx-encoding="multipart/form-data" hx-post="/api/data/historical/" hx-target="#hist-result" hx-indicator="#hist-spinner" class="mt-2 space-y-2">
                         {% csrf_token %}
-                        <input type="file" name="large_csv" accept=".csv" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-blue-700">
-                        <input type="text" name="target_trees" class="w-full border border-slate-300 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" placeholder="Trees (comma separated)">
-                        <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1.5 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
+                        <input type="file" name="large_csv" accept=".csv" class="w-full border border-slate-300 rounded-xl px-3 py-1 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:bg-primary file:text-white hover:file:bg-blue-700">
+                        <input type="text" name="target_trees" class="w-full border border-slate-300 rounded-xl px-3 py-1 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition" placeholder="Trees (comma separated)">
+                        <button type="submit" class="inline-flex items-center gap-2 bg-primary text-white px-4 py-1 rounded-xl text-sm font-medium hover:bg-blue-700 transition">
                             <span class="spinner htmx-indicator" id="hist-spinner"></span>
                             Extract Target Trees
                         </button>
                         <div id="hist-result" class="text-xs"></div>
                     </form>
-                </div>
+                </details>
             </div>
         </div>
 
@@ -167,16 +170,16 @@
 {% include "dashboard/sections/graphing.html" %}
 
 <!-- ================================================================ -->
-<!-- SECTION 2: ANALYSIS (2-column: Fourier + Comfort) -->
+<!-- SECTION 2: PREDICTION TOOL -->
+<!-- ================================================================ -->
+{% include "dashboard/sections/prediction.html" %}
+
+<!-- ================================================================ -->
+<!-- SECTION 3: ANALYSIS (2-column: Fourier + Comfort) -->
 <!-- ================================================================ -->
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8" id="analysis-grid">
     {% include "dashboard/sections/fourier.html" %}
     {% include "dashboard/sections/comfort.html" %}
 </div>
-
-<!-- ================================================================ -->
-<!-- SECTION 3: PREDICTION TOOL -->
-<!-- ================================================================ -->
-{% include "dashboard/sections/prediction.html" %}
 
 {% endblock %}
